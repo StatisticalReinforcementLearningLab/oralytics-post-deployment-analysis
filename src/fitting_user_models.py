@@ -288,14 +288,14 @@ if __name__ == "__main__":
 
   stat_zip_df = create_zip_df_from_params(stat_zip_model_columns, stat_zip_model_params)
 
-  stat_hurdle_df.to_csv('../sim_env_data/v3_stat_hurdle_model_params.csv')
-  stat_zip_df.to_csv('../sim_env_data/v3_stat_zip_model_params.csv')
+  stat_hurdle_df.to_csv('../sim_env_data/v4_stat_hurdle_model_params.csv')
+  stat_zip_df.to_csv('../sim_env_data/v4_stat_zip_model_params.csv')
 
   non_stat_hurdle_df = create_hurdle_df_from_params(non_stat_hurdle_model_columns, non_stat_bern_model_params, non_stat_hurdle_params)
 
   non_stat_zip_df = create_zip_df_from_params(non_stat_zip_model_columns, non_stat_zip_model_params)
 
-  non_stat_hurdle_df.to_csv('../sim_env_data/v3_non_stat_hurdle_model_params.csv')
-  non_stat_zip_df.to_csv('../v3_non_stat_zip_model_params.csv')
+  non_stat_hurdle_df.to_csv('../sim_env_data/v4_non_stat_hurdle_model_params.csv')
+  non_stat_zip_df.to_csv('../v4_non_stat_zip_model_params.csv')
 
 

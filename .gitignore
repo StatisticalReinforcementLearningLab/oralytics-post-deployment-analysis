@@ -1,3 +1,6 @@
+# Raw data should not be pushed for privacy reasons
+data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

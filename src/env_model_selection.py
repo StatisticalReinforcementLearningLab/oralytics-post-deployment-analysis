@@ -12,7 +12,7 @@ from sklearn.metrics import mean_squared_error
 
 from fitting_user_models import process_mrt_data
 
-MRT_DATA = pd.read_csv('sim_env_v3_data.csv')
+MRT_DATA = pd.read_csv('oralytics_mrt_data.csv')
 MRT_DATA = process_mrt_data(MRT_DATA)
 MRT_USERS = np.unique(MRT_DATA['user_id'])
 
@@ -47,12 +47,12 @@ for user_id in MRT_USERS:
   users_non_stat_states[user_id] = non_stat_states
 
 ## Square Root Transform ##
-STAT_SQRT_NORM_DF = pd.read_csv("../sim_env_data/v3_stat_hurdle_model_params.csv")
-NON_STAT_SQRT_NORM_DF = pd.read_csv("../sim_env_data/v3_non_stat_hurdle_model_params.csv")
+STAT_SQRT_NORM_DF = pd.read_csv("../sim_env_data/v4_stat_hurdle_model_params.csv")
+NON_STAT_SQRT_NORM_DF = pd.read_csv("../sim_env_data/v4_non_stat_hurdle_model_params.csv")
 
 ## Zero Inflated Poisson ##
-STAT_ZERO_INFL_POIS_DF = pd.read_csv("../sim_env_data/v3_stat_zip_model_params.csv")
-NON_STAT_ZERO_INFL_POIS_DF = pd.read_csv("../sim_env_data/v3_non_stat_zip_model_params.csv")
+STAT_ZERO_INFL_POIS_DF = pd.read_csv("../sim_env_data/v4_stat_zip_model_params.csv")
+NON_STAT_ZERO_INFL_POIS_DF = pd.read_csv("../sim_env_data/v4_non_stat_zip_model_params.csv")
 
 """### Helpers
 ---
@@ -183,11 +183,11 @@ non_stat_df = non_stat_df.drop(columns = ['User', 'Unnamed: 0'])
 stat_df.to_csv('stat_model_params.csv')
 non_stat_df.to_csv('non_stat_model_params.csv')
 
-STAT_SQRT_NORM_DF = pd.read_csv("v3_stat_hurdle_model_params.csv")
-NON_STAT_SQRT_NORM_DF = pd.read_csv("v3_non_stat_hurdle_model_params.csv")
+STAT_SQRT_NORM_DF = pd.read_csv("v4_stat_hurdle_model_params.csv")
+NON_STAT_SQRT_NORM_DF = pd.read_csv("v4_non_stat_hurdle_model_params.csv")
 
 ## Zero Inflated Poisson ##
-STAT_ZERO_INFL_POIS_DF = pd.read_csv("v3_stat_zip_model_params.csv")
-NON_STAT_ZERO_INFL_POIS_DF = pd.read_csv("v3_non_stat_zip_model_params.csv")
+STAT_ZERO_INFL_POIS_DF = pd.read_csv("v4_stat_zip_model_params.csv")
+NON_STAT_ZERO_INFL_POIS_DF = pd.read_csv("v4_non_stat_zip_model_params.csv")
 
 len(users_non_stat_states['digitaldentalcoach+203@gmail.com'][0])

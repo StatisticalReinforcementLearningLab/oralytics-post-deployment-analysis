@@ -2,7 +2,6 @@
 
 import pandas as pd
 import numpy as np
-import pickle
 from scipy.stats import bernoulli
 
 import read_write_info
@@ -13,17 +12,15 @@ import reward_definition
 ---
 """
 
-STAT_PARAMS_DF = pd.read_csv(read_write_info.READ_PATH_PREFIX + 'sim_env_data/v3_stat_zip_model_params.csv')
-NON_STAT_PARAMS_DF = pd.read_csv(read_write_info.READ_PATH_PREFIX + 'sim_env_data/v3_non_stat_zip_model_params.csv')
-APP_OPEN_PROB_DF = pd.read_csv(read_write_info.READ_PATH_PREFIX + 'sim_env_data/v3_app_open_prob.csv')
-SIM_ENV_USERS = np.array(STAT_PARAMS_DF['User'])
-# value used by run_experiments to draw with replacement
-NUM_USER_MODELS = len(SIM_ENV_USERS)
-
-# dictionary where key is index and value is user_id
-USER_INDICES = {}
-for i, user_id in enumerate(SIM_ENV_USERS):
-    USER_INDICES[i] = user_id
+NON_STAT_PARAMS_DF = pd.read_csv(read_write_info.READ_PATH_PREFIX + 'sim_env_data/v4_non_stat_zip_model_params.csv')
+APP_OPEN_PROB_DF = pd.read_csv(read_write_info.READ_PATH_PREFIX + 'sim_env_data/v4_app_open_prob.csv')
+SIM_ENV_USERS = np.array(NON_STAT_PARAMS_DF['User'])
+# getting participant start and end dates
+START_END_DATES_DF = pd.read_csv(read_write_info.READ_PATH_PREFIX + 'sim_env_data/v4_start_end_dates.csv')
+# values used by run_experiments
+NUM_TRIAL_USERS = len(SIM_ENV_USERS)
+TRIAL_START_DATE = "2023-09-22"
+TRIAL_END_DATE = "2024-07-16"
 
 """### Generate States
 ---
@@ -59,8 +56,8 @@ def get_previous_day_qualities_and_actions(j, Qs, As):
 
 # Note: We assume that all participants start the study on Monday (j = 0 denotes)
 # Monday morning. Therefore the first weekend idx is j = 10 (Saturday morning)
-def generate_env_state(j, user_qualities, user_actions, app_engagement, env_type):
-    env_state = np.ones(7) if env_type == 'NON_STAT' else np.ones(6)
+def generate_env_state(j, user_qualities, user_actions, app_engagement):
+    env_state = np.ones(7)
     # session type - either 0 or 1
     session_type = j % 2
     env_state[0] = session_type
@@ -76,18 +73,23 @@ def generate_env_state(j, user_qualities, user_actions, app_engagement, env_type
     # bias
     env_state[5] = 1
     # day in study if a non-stationary environment
-    if env_type == 'NON_STAT':
-        env_state[6] = simulation_environment.normalize_day_in_study(1 + (j // 2))
+    env_state[6] = simulation_environment.normalize_day_in_study(1 + (j // 2))
 
     return env_state
 
 def get_app_open_prob(user_id):
     return APP_OPEN_PROB_DF[APP_OPEN_PROB_DF['user_id'] == user_id]['app_open_prob'].values[0]
 
-# note: since v3 only chose zip models, these are the following parameters
-def get_base_params_for_user(user, env_type='STAT'):
-  param_dim = 6 if env_type == 'STAT' else 7
-  param_df = STAT_PARAMS_DF if env_type=='STAT' else NON_STAT_PARAMS_DF
+def get_user_start_date(user_id):
+    return START_END_DATES_DF[START_END_DATES_DF['user_id'] == user_id]['user_start_day'].values[0]
+
+def get_user_end_date(user_id):
+    return START_END_DATES_DF[START_END_DATES_DF['user_id'] == user_id]['user_end_day'].values[0]
+
+# note: since v4 only chose zip models, these are the following parameters
+def get_base_params_for_user(user):
+  param_dim = 7
+  param_df = NON_STAT_PARAMS_DF
   user_row = np.array(param_df[param_df['User'] == user])
   bern_base = user_row[0][2:2 + param_dim]
   poisson_base = user_row[0][2 + 2 * param_dim:2 + 3 * param_dim]
@@ -95,10 +97,10 @@ def get_base_params_for_user(user, env_type='STAT'):
   # poisson parameters, bernouilli parameters
   return bern_base, poisson_base, None
 
-# note: since v3 only chose zip models, these are the following parameters
-def get_adv_params_for_user(user, env_type='STAT'):
-  param_dim = 6 if env_type == 'STAT' else 7
-  param_df = STAT_PARAMS_DF if env_type=='STAT' else NON_STAT_PARAMS_DF
+# note: since v4 only chose zip models, these are the following parameters
+def get_adv_params_for_user(user):
+  param_dim = 7
+  param_df = NON_STAT_PARAMS_DF
   user_row = np.array(param_df[param_df['User'] == user])
   bern_adv = user_row[0][2 + param_dim: 2 + 2 * param_dim]
   poisson_adv = user_row[0][2 + 3 * param_dim:2 + 4 * param_dim]
@@ -117,38 +119,51 @@ def get_user_effect_funcs():
 ---
 """
 
-class UserEnvironmentV3(simulation_environment.UserEnvironmentAppEngagement):
-    def __init__(self, user_id, model_type, adv_params, delayed_effect_scale_val, \
+class UserEnvironmentV4(simulation_environment.UserEnvironmentAppEngagement):
+    def __init__(self, user_id, model_type, adv_params, \
                 user_params, user_effect_func_bern, user_effect_func_y):
         # Note: in the base UserEnvironment, it uses simulated user_effect_sizes,
         # but we replace it with adv_params, user's fitted advantage parameters
-        super(UserEnvironmentV3, self).__init__(user_id, model_type, adv_params, \
-            delayed_effect_scale_val, user_params, user_effect_func_bern, user_effect_func_y)
+        super(UserEnvironmentV4, self).__init__(user_id, model_type, adv_params, \
+                            user_params, user_effect_func_bern, user_effect_func_y)
         # probability of opening app
         self.app_open_base_prob = get_app_open_prob(user_id)
+        # for incremental recruitment, we use the actual start date from the Oralytics MRT
+        self.start_date = get_user_start_date(user_id)
+        self.end_date = get_user_end_date(user_id)
 
-def create_user_envs(users_list, delayed_effect_scale_val, env_type):
+    def get_start_date(self):
+        return self.start_date
+    
+    def get_end_date(self):
+        return self.end_date
+
+def create_user_envs(users_list):
     all_user_envs = {}
     for i, user_id in enumerate(users_list):
-      model_type = "zip" # note: all users in V3 have the zero-inflated poisson model
-      base_params = get_base_params_for_user(user_id, env_type)
-      adv_params = get_adv_params_for_user(user_id, env_type)
+      model_type = "zip" # note: all users in V4 have the zero-inflated poisson model
+      base_params = get_base_params_for_user(user_id)
+      adv_params = get_adv_params_for_user(user_id)
       user_effect_func_bern, user_effect_func_y = get_user_effect_funcs()
-      new_user = UserEnvironmentV3(user_id, model_type, adv_params, \
-                delayed_effect_scale_val, base_params, user_effect_func_bern, user_effect_func_y)
+      new_user = UserEnvironmentV4(user_id, model_type, adv_params, \
+                        base_params, user_effect_func_bern, user_effect_func_y)
       all_user_envs[i] = new_user
 
     return all_user_envs
 
-class SimulationEnvironmentV3(simulation_environment.SimulationEnvironmentAppEngagement):
-    # note: v3 does not have effect_size_scale property
-    def __init__(self, users_list, env_type, effect_size_scale, delayed_effect_scale):
-        delayed_effect_scale_val = simulation_environment.get_delayed_effect_scale(delayed_effect_scale)
-        user_envs = create_user_envs(users_list, delayed_effect_scale_val, env_type)
+class SimulationEnvironmentV4(simulation_environment.SimulationEnvironmentAppEngagement):
+    def __init__(self):
+        # note: v4 users the exact 79 participants from the Oralytics MRT
+        user_envs = create_user_envs(SIM_ENV_USERS)
 
-        super(SimulationEnvironmentV3, self).__init__(users_list, user_envs, env_type)
+        super(SimulationEnvironmentV4, self).__init__(SIM_ENV_USERS, user_envs)
 
-        self.version = "V3"
+        self.version = "V4"
+        self.trial_start_date = TRIAL_START_DATE
+        self.trial_end_date = TRIAL_END_DATE
+
+    def get_trial_start_end_dates(self):
+        return self.trial_start_date, self.trial_end_date
 
     def generate_current_state(self, user_idx, j):
         # prior day app_engagement is 0 for the first day
@@ -157,4 +172,4 @@ class SimulationEnvironmentV3(simulation_environment.SimulationEnvironmentAppEng
         brushing_qualities = np.array(self.get_env_history(user_idx, "outcomes"))
         past_actions = np.array(self.get_env_history(user_idx, "actions"))
 
-        return generate_env_state(j, brushing_qualities, past_actions, prior_app_engagement, self.get_env_type())
+        return generate_env_state(j, brushing_qualities, past_actions, prior_app_engagement)

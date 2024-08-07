@@ -4,37 +4,33 @@ from scipy.stats import bernoulli
 from scipy.stats import poisson
 from scipy.stats import norm
 
-import read_write_info
-
 class SimulationEnvironment():
-    def __init__(self, users_list, user_envs, env_type):
+    def __init__(self, users_list, user_envs):
         # must be implemented by children
         self.version = None
         # List: users in the environment (can repeat)
         self.users_list = users_list
         # Dict: key: int trial_user_idx, val: user environment object
         self.all_user_envs = user_envs
-        # STAT or NON_STAT
-        self.env_type = env_type
 
     def get_version(self):
         return self.version
-
-    def get_env_type(self):
-        return self.env_type
 
     # this method needs to be implemented by all children
     def generate_current_state(self):
         return None
 
-    def generate_rewards(self, user_idx, state, action):
-        return self.all_user_envs[user_idx].generate_reward(state, action)
+    def generate_outcomes(self, user_idx, state, action):
+        return self.all_user_envs[user_idx].generate_outcome(state, action)
 
     def get_states_for_user(self, user_idx):
         return self.all_user_envs[user_idx].get_states()
 
     def get_users(self):
         return self.users_list
+    
+    def get_user_envs(self):
+        return self.all_user_envs
 
     def get_env_history(self, user_idx, property):
         return self.all_user_envs[user_idx].get_user_history(property)
@@ -43,8 +39,8 @@ class SimulationEnvironment():
         self.all_user_envs[user_idx].update_responsiveness(a1_cond, a2_cond, b_cond, j)
 
 class SimulationEnvironmentAppEngagement(SimulationEnvironment):
-    def __init__(self, users_list, user_envs, env_type):
-        super(SimulationEnvironmentAppEngagement, self).__init__(users_list, user_envs, env_type)
+    def __init__(self, users_list, user_envs):
+        super(SimulationEnvironmentAppEngagement, self).__init__(users_list, user_envs)
 
     def generate_app_engagement(self, user_idx):
         return self.all_user_envs[user_idx].generate_app_engagement()
@@ -87,7 +83,7 @@ def sigmoid(x):
 """### Functions for Environment Models
 ---
 """
-def construct_model_and_sample(user, state, action, \
+def construct_model_and_sample(state, action, \
                                           bern_params, \
                                           y_params, \
                                           sigma_u, \
@@ -124,24 +120,18 @@ def construct_model_and_sample(user, state, action, \
 
 class UserEnvironment():
     def __init__(self, user_id, model_type, user_sessions, user_effect_sizes, \
-                delayed_effect_scale_val, user_params, user_effect_func_bern, user_effect_func_y):
+                user_params, user_effect_func_bern, user_effect_func_y):
         self.user_id = user_id
         self.model_type = model_type
         # vector: size (T, D) where D is the dimension of the env. state
         # T is the length of the study
         self.user_states = user_sessions
-        # tuple: float values of effect size on bernoulli, poisson components
-        self.og_user_effect_sizes = user_effect_sizes
-        self.user_effect_sizes = np.copy(self.og_user_effect_sizes)
-        # float: unresponsive scaling value
-        self.delayed_effect_scale_val = delayed_effect_scale_val
-        # you can only shrink at most once a week
-        self.times_shrunk = 0
+        self.user_effect_sizes = user_effect_sizes
         # reward generating function
         self.user_params = user_params
         self.user_effect_func_bern = user_effect_func_bern
         self.user_effect_func_y = user_effect_func_y
-        self.reward_generating_func = lambda state, action: construct_model_and_sample(user_id, state, action, \
+        self.reward_generating_func = lambda state, action: construct_model_and_sample(state, action, \
                                           self.user_params[0], \
                                           self.user_params[1], \
                                           self.user_params[2], \
@@ -157,28 +147,13 @@ class UserEnvironment():
     def set_user_history(self, property, value):
         self.user_history[property].append(value)
 
-    def generate_reward(self, state, action):
+    def generate_outcome(self, state, action):
         # save action and outcome
         self.set_user_history("actions", action)
-        reward = min(self.reward_generating_func(state, action), 180)
-        self.set_user_history("outcomes", reward)
+        outcome = min(self.reward_generating_func(state, action), 180)
+        self.set_user_history("outcomes", outcome)
 
-        return reward
-
-    def update_responsiveness(self, a1_cond, a2_cond, b_cond, j):
-        # it's been atleast a week since we last shrunk
-        if j % 14 == 0:
-            if (b_cond and a1_cond) or a2_cond:
-                self.user_effect_sizes = self.user_effect_sizes * self.delayed_effect_scale_val
-                self.times_shrunk += 1
-
-            elif self.times_shrunk > 0:
-                if self.delayed_effect_scale_val == 0:
-                    self.user_effect_sizes[0] = self.og_user_effect_sizes[0]
-                    self.user_effect_sizes[1] = self.og_user_effect_sizes[1]
-                else:
-                    self.user_effect_sizes = self.user_effect_sizes / self.delayed_effect_scale_val
-                self.times_shrunk -= 1
+        return outcome
 
     def get_states(self):
         return self.user_states
@@ -187,10 +162,10 @@ class UserEnvironment():
         return self.user_effect_sizes
 
 class UserEnvironmentAppEngagement(UserEnvironment):
-    def __init__(self, user_id, model_type, user_effect_sizes, delayed_effect_scale_val, \
+    def __init__(self, user_id, model_type, user_effect_sizes, \
                 user_params, user_effect_func_bern, user_effect_func_y):
         super(UserEnvironmentAppEngagement, self).__init__(user_id, model_type, None, user_effect_sizes, \
-                  delayed_effect_scale_val, user_params, user_effect_func_bern, user_effect_func_y)
+                  user_params, user_effect_func_bern, user_effect_func_y)
         # probability of opening app, needs to be implemented by children
         self.app_open_base_prob = None
         # tracking prior day app engagement
@@ -212,17 +187,3 @@ class UserEnvironmentAppEngagement(UserEnvironment):
 
     def set_last_open_app_dt(self, j):
         self.last_open_app_dt = j
-
-"""## SIMULATING DELAYED EFFECTS COMPONENT
----
-"""
-
-def get_delayed_effect_scale(delayed_effect_scale):
-    if delayed_effect_scale == 'LOW_R':
-        return 0
-    elif delayed_effect_scale == 'MED_R':
-        return 0.5
-    elif delayed_effect_scale == 'HIGH_R':
-        return 0.8
-    else:
-        print("ERROR: NO DELAYED EFFECT SCALE FOUND - ", delayed_effect_scale)

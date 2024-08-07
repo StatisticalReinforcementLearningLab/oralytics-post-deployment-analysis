@@ -1,13 +1,36 @@
-import rl_algorithm
 import numpy as np
 import pandas as pd
 import reward_definition
 import experiment_global_vars
+from datetime import datetime, timedelta
 
-RECRUITMENT_RATE = experiment_global_vars.RECRUITMENT_RATE
+
 TRIAL_LENGTH_IN_WEEKS = experiment_global_vars.TRIAL_LENGTH_IN_WEEKS
 NUM_DECISION_TIMES = experiment_global_vars.NUM_DECISION_TIMES
 FILL_IN_COLS = experiment_global_vars.FILL_IN_COLS
+
+# helpers for recruitment by date
+def get_date(date_string):
+    return datetime.strptime(date_string, '%Y-%m-%d').date()
+
+def increment_date(date_string):
+    next_date = get_date(date_string) + timedelta(days=1)
+    return next_date.strftime("%Y-%m-%d") 
+
+def dt_to_user_day_in_study(dt):
+    return dt // 2 + 1
+
+def calculate_day_in_study(start_date_str, curr_date_str):
+    curr_date =  get_date(curr_date_str)
+    start_date =  get_date(start_date_str)
+
+    return (curr_date - start_date).days + 1
+
+def get_morning_decision_t(user_day_in_study):
+    return (2 * user_day_in_study) - 2
+
+def get_evening_decision_t(user_day_in_study):
+    return (2 * user_day_in_study) - 1
 
 # assumes a weekly recruitment rate
 def compute_num_updates(users_groups, update_cadence):
@@ -26,6 +49,7 @@ def create_dfs_no_pooling(users, update_cadence, rl_algorithm_feature_dim):
     data_dict['user_idx'] = np.repeat(range(N), NUM_DECISION_TIMES)
     data_dict['user_id'] = np.repeat(users, NUM_DECISION_TIMES)
     data_dict['user_decision_t'] = np.stack([range(NUM_DECISION_TIMES) for _ in range(N)], axis=0).flatten()
+    data_dict['trial_day_in_study'] = np.stack([1 + (np.arange(NUM_DECISION_TIMES) // 2) for _ in range(N)], axis=0).flatten()
     data_dict['day_in_study'] = np.stack([1 + (np.arange(NUM_DECISION_TIMES) // 2) for _ in range(N)], axis=0).flatten()
     for key in FILL_IN_COLS:
         data_dict[key] = np.full(batch_data_size, np.nan)
@@ -45,24 +69,21 @@ def create_dfs_no_pooling(users, update_cadence, rl_algorithm_feature_dim):
 
     return data_df, update_df
 
-def create_dfs_full_pooling(users_groups, update_cadence, rl_algorithm_feature_dim):
-    N = len(users_groups)
+def create_dfs_full_pooling(user_ids, user_envs, rl_algorithm_feature_dim):
+    N = len(user_ids)
     batch_data_size = N * NUM_DECISION_TIMES
     ### data df ###
     data_dict = {}
-    data_dict['user_idx'] = np.repeat(users_groups[:,0].astype(int), NUM_DECISION_TIMES)
-    data_dict['user_id'] = np.repeat(users_groups[:,2], NUM_DECISION_TIMES)
-    data_dict['user_entry_decision_t'] = 14 * np.repeat(users_groups[:,1].astype(int), NUM_DECISION_TIMES)
-    data_dict['user_last_decision_t'] = 14 * np.repeat(users_groups[:,1].astype(int), NUM_DECISION_TIMES) + (NUM_DECISION_TIMES - 1)
+    data_dict['user_id'] = np.repeat(user_ids, NUM_DECISION_TIMES)
+    data_dict['user_idx'] = np.repeat(list(user_envs.keys()), NUM_DECISION_TIMES)
     data_dict['user_decision_t'] = np.stack([range(NUM_DECISION_TIMES) for _ in range(N)], axis=0).flatten()
-    data_dict['calendar_decision_t'] = 14 * np.repeat(users_groups[:,1].astype(int), NUM_DECISION_TIMES) + data_dict['user_decision_t']
-    data_dict['day_in_study'] = 1 + ((14 * np.repeat(users_groups[:,1].astype(int), NUM_DECISION_TIMES) + data_dict['user_decision_t']) // 2)
+    data_dict['user_day_in_study'] = np.vectorize(dt_to_user_day_in_study)(data_dict['user_decision_t'])
     for key in FILL_IN_COLS:
         data_dict[key] = np.full(batch_data_size, np.nan)
     data_df = pd.DataFrame.from_dict(data_dict)
     ### udpate df ###
     update_dict = {}
-    num_updates = compute_num_updates(users_groups, update_cadence)
+    num_updates = 38 # the number of posterior updates in the real trial
     update_dict['update_t'] = np.arange(0, num_updates)
     for i in range(rl_algorithm_feature_dim):
         update_dict['posterior_mu.{}'.format(i)] = np.full(num_updates, np.nan)
@@ -70,33 +91,19 @@ def create_dfs_full_pooling(users_groups, update_cadence, rl_algorithm_feature_d
         for j in range(rl_algorithm_feature_dim):
             update_dict['posterior_var.{}.{}'.format(i, j)] = np.full(num_updates, np.nan)
     update_df = pd.DataFrame.from_dict(update_dict)
-    ### estimating eqns df ###
-    estimating_eqns_dict = {}
-    num_updates_for_cluster = int(NUM_DECISION_TIMES / update_cadence)
-    last_group_idx = max(users_groups[:,1].astype(int))
-    estimating_eqns_dict['update_t'] = np.stack([range(1 + start_idx * int(14 / update_cadence), start_idx * int(14 / update_cadence) + num_updates_for_cluster + 1) \
-    for start_idx in users_groups[:,1].astype(int)], axis=0).flatten()
-    estimating_eqns_dict['user_idx'] = np.repeat(users_groups[:,0].astype(int), num_updates_for_cluster)
-    estimating_eqns_dict['user_id'] = np.repeat(users_groups[:,2], num_updates_for_cluster)
-    for i in range(rl_algorithm_feature_dim):
-        estimating_eqns_dict['mean_estimate.{}'.format(i)] = np.full(N * num_updates_for_cluster, np.nan)
-    for i in range(rl_algorithm_feature_dim):
-        for j in range(rl_algorithm_feature_dim):
-            estimating_eqns_dict['var_estimate.{}.{}'.format(i, j)] = np.full(N * num_updates_for_cluster, np.nan)
-    estimating_eqns_df = pd.DataFrame.from_dict(estimating_eqns_dict)
 
-    return data_df, update_df, estimating_eqns_df
+    return data_df, update_df
 
 # regex pattern '.*' gets you everything
 # Note: if regex pattern only refers to one column, then you need to .flatten() the resulting array
-def get_data_df_values_for_users(data_df, user_idxs, day_in_study, regex_pattern):
-    return np.array(data_df.loc[(data_df['user_idx'].isin(user_idxs)) & (data_df['day_in_study'] <= day_in_study)].filter(regex=(regex_pattern)))
+def get_data_df_values_for_users(data_df, user_idxs, trial_day_in_study, regex_pattern):
+    return np.array(data_df.loc[(data_df['user_idx'].isin(user_idxs)) & (data_df['trial_day_in_study'] <= trial_day_in_study)].filter(regex=(regex_pattern)))
 
 def get_user_data_values_from_decision_t(data_df, user_idx, decision_t, regex_pattern):
     return np.array(data_df.loc[(data_df['user_idx'] == user_idx) & (data_df['user_decision_t'] < decision_t)].filter(regex=(regex_pattern)))
 
-def set_data_df_values_for_user(data_df, user_idx, decision_time, policy_idx, action, prob, reward, quality, alg_state):
-    data_df.loc[(data_df['user_idx'] == user_idx) & (data_df['user_decision_t'] == decision_time), FILL_IN_COLS] = np.concatenate([[policy_idx, action, prob, reward, quality], alg_state])
+def set_data_df_values_for_user(data_df, user_idx, decision_time, trial_day_in_study, policy_idx, action, prob, reward, quality, alg_state):
+    data_df.loc[(data_df['user_idx'] == user_idx) & (data_df['user_decision_t'] == decision_time), FILL_IN_COLS] = np.concatenate([[trial_day_in_study, policy_idx, action, prob, reward, quality], alg_state])
 
 ### for full pooling experiments ###
 def set_update_df_values(update_df, update_t, posterior_mu, posterior_var):
@@ -105,27 +112,6 @@ def set_update_df_values(update_df, update_t, posterior_mu, posterior_var):
 ### for no pooling experiments ###
 def set_update_df_values_for_user(update_df, user_idx, update_t, posterior_mu, posterior_var):
     update_df.iloc[(update_df['update_t'] == update_t) & (update_df['user_idx'] == user_idx), 3:] = np.concatenate([posterior_mu, posterior_var.flatten()])
-
-def set_estimating_eqns_df_values(df, update_t, user_idx, estimating_eqns):
-    df.iloc[(df['update_t'] == update_t) & (df['user_idx'] == user_idx), 3:] = estimating_eqns
-
-# n is the number of users currently in the study
-# computes and sets estimating eqn statistic for every user currently in the study
-def compute_and_estimating_equation_statistic(data_df, estimating_eqns_df, \
-                                            current_groups, alg_candidate, \
-                                            update_t, day_in_study):
-    n = len(current_groups)
-    for user_idx in current_groups:
-        alg_state = get_data_df_values_for_users(data_df, [user_idx], day_in_study, "state.*")
-        probs = get_data_df_values_for_users(data_df, [user_idx], day_in_study, "prob").flatten()
-        actions = get_data_df_values_for_users(data_df, [user_idx], day_in_study, "action").flatten()
-        big_phi = alg_candidate.feature_map(alg_state,\
-                                            alg_state,\
-                                            probs,\
-                                            actions)
-        big_r = get_data_df_values_for_users(data_df, [user_idx], day_in_study, 'reward').flatten()
-        estimating_eqn = alg_candidate.compute_estimating_equation([big_phi, big_r], n)
-        set_estimating_eqns_df_values(estimating_eqns_df, update_t, user_idx, estimating_eqn)
 
 # if user did not open the app at all before the decision time, then we simulate
 # the algorithm selecting action based off of a stale state (i.e., b_bar is the b_bar from when the user last opened their app)
@@ -159,32 +145,23 @@ def get_previous_day_qualities_and_actions(j, Qs, As):
     else:
         return Qs, As
 
-def execute_decision_time(data_df, user_idx, j, alg_candidate, sim_env, policy_idx):
+def execute_decision_time(data_df, user_idx, j, trial_day_in_study, alg_candidate, sim_env, policy_idx):
     env_state = sim_env.generate_current_state(user_idx, j)
-    user_qualities = get_user_data_values_from_decision_t(data_df, user_idx, j, 'quality').flatten()
-    user_actions = get_user_data_values_from_decision_t(data_df, user_idx, j, 'action').flatten()
-    Qs, As = get_previous_day_qualities_and_actions(j, user_qualities, user_actions)
-    b_bar, a_bar = reward_definition.get_b_bar_a_bar(Qs, As)
-    advantage_state, _ = alg_candidate.process_alg_state(env_state, b_bar, a_bar)
+    advantage_state, _ = alg_candidate.process_alg_state(env_state)
     # simulate app opening issue
-    if sim_env.get_version() == "V2" or sim_env.get_version() == "V3":
-        user_last_open_app_dt = sim_env.get_user_last_open_app_dt(user_idx)
-        alg_state = get_alg_state_from_app_opening(user_last_open_app_dt, data_df, user_idx, j, advantage_state)
-    else:
-        alg_state = advantage_state
+    user_last_open_app_dt = sim_env.get_user_last_open_app_dt(user_idx)
+    alg_state = get_alg_state_from_app_opening(user_last_open_app_dt, data_df, user_idx, j, advantage_state)
     ## ACTION SELECTION ##
     action, action_prob = alg_candidate.action_selection(alg_state)
     ## REWARD GENERATION ##
     # quality definition
-    quality = sim_env.generate_rewards(user_idx, env_state, action)
+    quality = sim_env.generate_outcomes(user_idx, env_state, action)
+    # extract b_bar and a_bar from state
+    b_bar = advantage_state[1]
+    a_bar = advantage_state[2]
     reward = alg_candidate.reward_def_func(quality, action, b_bar, a_bar)
     ## SAVE VALUES ##
-    set_data_df_values_for_user(data_df, user_idx, j, policy_idx, action, action_prob, reward, quality, alg_state)
-    ## UPDATE UNRESPONSIVENESS ##
-    # if it's after the first week
-    if j >= 14:
-        sim_env.update_responsiveness(user_idx, reward_definition.calculate_a1_condition(a_bar),\
-         reward_definition.calculate_a2_condition(a_bar), reward_definition.calculate_b_condition(b_bar), j)
+    set_data_df_values_for_user(data_df, user_idx, j, trial_day_in_study, policy_idx, action, action_prob, reward, quality, alg_state)
 
 def run_experiment(alg_candidates, sim_env):
     env_users = sim_env.get_users()
@@ -197,11 +174,12 @@ def run_experiment(alg_candidates, sim_env):
         set_update_df_values_for_user(update_df, user_idx, 0, \
         alg_candidates[user_idx].posterior_mean, alg_candidates[user_idx].posterior_var)
     for j in range(NUM_DECISION_TIMES):
-        # print("Decision Time: ", j)
         for user_idx in range(len(env_users)):
             alg_candidate = alg_candidates[user_idx]
-            execute_decision_time(data_df, user_idx, j, alg_candidate, sim_env, policy_idxs[user_idx])
-            if (j % update_cadence == (update_cadence - 1) and j > 0):
+            execute_decision_time(data_df, user_idx, j, dt_to_user_day_in_study(j), alg_candidate, sim_env, policy_idxs[user_idx])
+            # each user's first week is pure exploration using the prior
+            # note: we only update if the algorithm is online, or else the prior is used for the whole trial
+            if ((j % update_cadence == (update_cadence - 1) and j >= 13) and alg_candidate.check_is_online()):
                 day_in_study = 1 + (j // 2)
                 alg_states = get_data_df_values_for_users(data_df, [user_idx], day_in_study, 'state.*')
                 actions = get_data_df_values_for_users(data_df, [user_idx], day_in_study, 'action').flatten()
@@ -210,71 +188,63 @@ def run_experiment(alg_candidates, sim_env):
                 alg_candidate.update(alg_states, actions, pis, rewards)
                 policy_idxs[user_idx] += 1
                 update_idx = int(policy_idxs[user_idx])
-                # print("Update Time {} for {}".format(update_idx, user_idx))
+                print("Update Time {} for {}".format(update_idx, user_idx))
                 set_update_df_values_for_user(update_df, user_idx, update_idx, alg_candidate.posterior_mean, alg_candidate.posterior_var)
-            # check if we want to end period of pure exploration for each user
-            # for each user's first week, we use the prior
-            if alg_candidate.is_pure_exploration_period() and j >= 13:
-                alg_candidate.end_pure_exploration_period()
 
     return data_df, update_df
 
-# returns a int(NUM_USERS / RECRUITMENT_RATE) x RECRUITMENT_RATE array of user indices
-# row index represents every other week that they enter the study
-def pre_process_users(total_trial_users):
-    results = []
-    for j, user in enumerate(total_trial_users):
-        results.append((int(j), int(2 * (j // RECRUITMENT_RATE)) + 1, user))
+# either gets all users with that start date or end date
+# type needs to be either "start" or "end"
+def get_users_for_date(user_envs, date, type):
+    users = []
+    for user_idx, user_env in user_envs.items():
+        if type == "start" and user_env.get_start_date() == date:
+            users.append(user_idx)
+        elif type == "end" and user_env.get_end_date() == date:
+            users.append(user_idx)
 
-    return np.array(results)
+    return users
 
 ### runs experiment with full pooling and incremental recruitment
-# users_groups will be a list of tuples where tuple[0] is the user index
-# tuple[1] is the week they entered the study, tuple[2] is the user id string
-def run_incremental_recruitment_exp(user_groups, alg_candidate, sim_env):
-    update_cadence = alg_candidate.get_update_cadence()
-    data_df, update_df, _ = create_dfs_full_pooling(user_groups, update_cadence, alg_candidate.get_feature_dim())
+def run_incremental_recruitment_exp(alg_candidate, sim_env):
+    # instantiating dataframes
+    env_users = sim_env.get_users()
+    user_envs = sim_env.get_user_envs()
+    data_df, update_df = create_dfs_full_pooling(env_users, user_envs, alg_candidate.get_feature_dim())
     # add in prior values to posterior dataframe
-    set_update_df_values(update_df, 0, alg_candidate.posterior_mean, alg_candidate.posterior_var)
-    current_groups = user_groups[:RECRUITMENT_RATE]
     update_idx = 0
-    week = 1
-    while (len(current_groups) > 0):
-        print("Week: ", week)
-        # do action selection for 14 decision times (7 days)
-        num_updates_within_week = int(14 / update_cadence)
-        for update_idx_within_week in range(num_updates_within_week):
-            for user_tuple in current_groups:
-                user_idx, user_entry_date = int(user_tuple[0]), int(user_tuple[1])
-                for decision_idx in range(update_cadence):
-                    j = (week - user_entry_date) * 14 + (update_idx_within_week * update_cadence) + decision_idx
-                    execute_decision_time(data_df, user_idx, j, alg_candidate, sim_env, update_idx)
+    set_update_df_values(update_df, update_idx, alg_candidate.posterior_mean, alg_candidate.posterior_var)
+    current_date_str, trial_end_date_str = sim_env.get_trial_start_end_dates()
+    trial_day_in_study = 1
+    # get current users
+    current_user_idxs = get_users_for_date(user_envs, current_date_str, "start")
+    while current_date_str != trial_end_date_str:
+        # check if it's update time
+        if ((get_date(current_date_str) in alg_candidate.get_update_dates()) and alg_candidate.check_is_online()):
             ### UPDATE TIME ###
-            day_in_study = 1 + (week - 1) * 7 + (update_idx_within_week + decision_idx // 2)
-            current_user_idxs = current_groups[:,0].astype(int)
-            # update time at the end of each week
-            alg_states = get_data_df_values_for_users(data_df, current_user_idxs, day_in_study, 'state.*')
-            actions = get_data_df_values_for_users(data_df, current_user_idxs, day_in_study, 'action').flatten()
-            pis = get_data_df_values_for_users(data_df, current_user_idxs, day_in_study, 'prob').flatten()
-            rewards = get_data_df_values_for_users(data_df, current_user_idxs, day_in_study, 'reward').flatten()
+            alg_states = get_data_df_values_for_users(data_df, current_user_idxs, trial_day_in_study, 'state.*')
+            actions = get_data_df_values_for_users(data_df, current_user_idxs, trial_day_in_study, 'action').flatten()
+            pis = get_data_df_values_for_users(data_df, current_user_idxs, trial_day_in_study, 'prob').flatten()
+            rewards = get_data_df_values_for_users(data_df, current_user_idxs, trial_day_in_study, 'reward').flatten()
             alg_candidate.update(alg_states, actions, pis, rewards)
-            update_idx = 1 + (week - 1) * num_updates_within_week + update_idx_within_week
-            # print("UPDATE TIME.", update_idx)
+            update_idx += 1
             set_update_df_values(update_df, update_idx, alg_candidate.posterior_mean, alg_candidate.posterior_var)
-        # handle adding or removing user groups
-        week += 1
-        # check if we want to end period of pure exploration
-        if alg_candidate.is_pure_exploration_period() and len(current_groups) >= 15:
-            alg_candidate.end_pure_exploration_period()
-        # biweekly recruitment rate
-        if week % 2 != 0:
-            # add more users
-            # if there are no more users in user_groups to add then current_groups will stay the same
-            current_groups = np.concatenate((current_groups, user_groups[np.where(user_groups[:, 1] == str(week))]), axis=0)
-            # check if some user group finished the study
-            # since we only add users biweekly, users finishing the study should also be
-            # at a biweekly cadence
-            if (week > TRIAL_LENGTH_IN_WEEKS):
-                current_groups = current_groups[RECRUITMENT_RATE:]
+        # execute morning and evening decision times for the current day
+        for user_idx in current_user_idxs:
+            user_start_date_str = user_envs[user_idx].get_start_date()
+            user_day_in_study = calculate_day_in_study(user_start_date_str, current_date_str)
+            morning_dt = get_morning_decision_t(user_day_in_study)
+            evening_dt = get_evening_decision_t(user_day_in_study)
+            execute_decision_time(data_df, user_idx, morning_dt, trial_day_in_study, alg_candidate, sim_env, update_idx)
+            execute_decision_time(data_df, user_idx, evening_dt, trial_day_in_study, alg_candidate, sim_env, update_idx)
+
+        # increment day
+        current_date_str = increment_date(current_date_str)
+        trial_day_in_study += 1
+        # add users by start date
+        current_user_idxs += get_users_for_date(user_envs, current_date_str, "start")
+        # remove users if they have finished the trial
+        finished_users = get_users_for_date(user_envs, current_date_str, "end")
+        current_user_idxs = [user for user in current_user_idxs if user not in finished_users]
 
     return data_df, update_df
