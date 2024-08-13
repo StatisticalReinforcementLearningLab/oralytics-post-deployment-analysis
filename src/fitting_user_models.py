@@ -2,14 +2,6 @@
 # pull packages
 import pandas as pd
 import numpy as np
-from scipy.stats import bernoulli
-from scipy.stats import norm
-from scipy.stats import lognorm
-from scipy.stats import poisson
-from scipy.stats import kurtosis
-from scipy.stats import skew
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
 import pymc as pm
 from pymc.model import Model
 import pickle
@@ -30,10 +22,19 @@ def process_mrt_data(df):
   df['state_day_type'] = pd.to_datetime(df['decision_time']).apply(lambda x: 1 if x.weekday() >= 5 else 0)
 
   df = df.drop(columns = ['state_modif'])
-  df = np.unique(df['user_id'])
 
   df = df.query('user_id != "digitaldentalcoach+234@gmail.com"')
 
+  df['state_day_in_study'] = (df['state_day_in_study'] - df['state_day_in_study'].min()) / (df['state_day_in_study'].max() - df['state_day_in_study'].min())
+
+  desired_order = ['Unnamed: 0.1', 'Unnamed: 0', 'user_id', 'user_start_day',
+                 'user_end_day', 'timestamp', 'decision_time', 'user_decision_t',
+                 'first_policy_idx', 'action', 'prob', 'quality', 'state_tod',
+                 'state_b_bar', 'state_a_bar', 'state_app_engage', 'state_day_type',
+                 'state_bias', 'state_day_in_study', 'viability', 'modification_type',
+                 'schedule_id', 'raw_brushing_duration', 'raw_pressure_duration',
+                 'decision_date', 'user_start_day_dt']
+  df = df[desired_order]
   return df
 
 MRT_DATA = process_mrt_data(MRT_DATA)
@@ -208,24 +209,24 @@ if __name__ == "__main__":
     users_stat_states[user_id] = stat_states
     users_non_stat_states[user_id] = non_stat_states
 
-  # # stationary model, bernoulli params
+  # # # stationary model, bernoulli params
   stat_bern_model_params = run_bern_map_for_users(users_stat_states, users_actions, users_rewards, d=6, num_restarts=5)
   stat_bern_model_params
 
-  # stationary model, hurdle params
+  # # stationary model, hurdle params
   stat_hurdle_params = run_hurdle_map_for_users(users_stat_states, users_actions, users_rewards, d=6, num_restarts=5)
   stat_hurdle_params
 
-  # stationary model, zip params
+  # # stationary model, zip params
   stat_zip_model_params = run_zero_infl_map_for_users(users_stat_states, users_actions, users_rewards, d=6, num_restarts=5)
   stat_zip_model_params
 
-  ## non-stationary models ##
-  # bernoulli params
+  # ## non-stationary models ##
+  # # bernoulli params
   non_stat_bern_model_params = run_bern_map_for_users(users_non_stat_states, users_actions, users_rewards, d=7, num_restarts=5)
   non_stat_bern_model_params
 
-  # hurdle params
+  # # hurdle params
   non_stat_hurdle_params = run_hurdle_map_for_users(users_non_stat_states, users_actions, users_rewards, d=7, num_restarts=5)
   non_stat_hurdle_params
 
@@ -296,6 +297,6 @@ if __name__ == "__main__":
   non_stat_zip_df = create_zip_df_from_params(non_stat_zip_model_columns, non_stat_zip_model_params)
 
   non_stat_hurdle_df.to_csv('../sim_env_data/v4_non_stat_hurdle_model_params.csv')
-  non_stat_zip_df.to_csv('../v4_non_stat_zip_model_params.csv')
+  non_stat_zip_df.to_csv('../sim_env_data/v4_non_stat_zip_model_params_new.csv')
 
 
