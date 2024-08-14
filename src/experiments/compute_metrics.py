@@ -1,13 +1,11 @@
 import pandas as pd
 import numpy as np
-import pickle
 from scipy import stats
-import itertools
-import run
 import experiment_global_vars
+import sim_env_v4
 
 ### GLOBAL VALUES ###
-NUM_TRIAL_USERS = experiment_global_vars.NUM_TRIAL_USERS
+NUM_TRIAL_USERS = sim_env_v4.NUM_TRIAL_USERS
 NUM_DECISION_TIMES = experiment_global_vars.NUM_DECISION_TIMES
 
 def get_data_df_values_for_users(data_df, user_idxs, regex_pattern):

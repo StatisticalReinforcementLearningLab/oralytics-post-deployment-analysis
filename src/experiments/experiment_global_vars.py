@@ -8,6 +8,7 @@ TRIAL_LENGTH_IN_WEEKS = 10
 # We should have NUM_USERS x NUM_DECISION_TIMES datapoints for each saved value or
 # statistic at the end of the study
 NUM_DECISION_TIMES = 70 * 2
+NUM_ALG_UPDATES = 38
 
 """
 V4:

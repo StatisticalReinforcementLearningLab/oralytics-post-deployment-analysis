@@ -138,12 +138,44 @@ class UserEnvironmentV4(simulation_environment.UserEnvironmentAppEngagement):
     def get_end_date(self):
         return self.end_date
 
-def create_user_envs(users_list):
+# def create_user_envs(users_list):
+#     all_user_envs = {}
+#     for i, user_id in enumerate(users_list):
+#       model_type = "zip" # note: all users in V4 have the zero-inflated poisson model
+#       base_params = get_base_params_for_user(user_id)
+#       adv_params = get_adv_params_for_user(user_id)
+#       user_effect_func_bern, user_effect_func_y = get_user_effect_funcs()
+#       new_user = UserEnvironmentV4(user_id, model_type, adv_params, \
+#                         base_params, user_effect_func_bern, user_effect_func_y)
+#       all_user_envs[i] = new_user
+
+#     return all_user_envs
+
+# modifies the advantage parameters depending on the state_feature specified
+# if state_feature is None or not one of the algorithm features then we make
+# no modifications and the advantage parameters are the one fitted using the MRT data
+def create_user_envs_under_no_treatment(users_list, state_feature):
     all_user_envs = {}
     for i, user_id in enumerate(users_list):
       model_type = "zip" # note: all users in V4 have the zero-inflated poisson model
       base_params = get_base_params_for_user(user_id)
       adv_params = get_adv_params_for_user(user_id)
+      # modify adv_params based on the state_feature
+      if state_feature == "tod":
+          adv_params[0][0] = 0
+          adv_params[1][0] = 0
+      elif state_feature == "b_bar":
+          adv_params[0][1] = 0
+          adv_params[1][1] = 0
+      elif state_feature == "a_bar":
+          adv_params[0][2] == 0
+          adv_params[1][2] == 0
+      elif state_feature == "app_engage":
+          adv_params[0][3] == 0
+          adv_params[1][3] == 0
+      # for the bias, we zero out all advantage parameters
+      elif state_feature == "bias":
+          adv_params = np.zeros(7), np.zeros(7)
       user_effect_func_bern, user_effect_func_y = get_user_effect_funcs()
       new_user = UserEnvironmentV4(user_id, model_type, adv_params, \
                         base_params, user_effect_func_bern, user_effect_func_y)
@@ -151,10 +183,11 @@ def create_user_envs(users_list):
 
     return all_user_envs
 
+# Environment used to re-evaluate algorithm design decisions
 class SimulationEnvironmentV4(simulation_environment.SimulationEnvironmentAppEngagement):
-    def __init__(self):
-        # note: v4 users the exact 79 participants from the Oralytics MRT
-        user_envs = create_user_envs(SIM_ENV_USERS)
+    def __init__(self, state_feature=None):
+        # note: v4 uses the exact 79 participants from the Oralytics MRT
+        user_envs = create_user_envs_under_no_treatment(SIM_ENV_USERS, state_feature)
 
         super(SimulationEnvironmentV4, self).__init__(SIM_ENV_USERS, user_envs)
 
