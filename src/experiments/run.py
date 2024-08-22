@@ -31,40 +31,39 @@ OUTPUT_DIR = read_write_info.WRITE_PATH_PREFIX
 CLUSTER_SIZES = ["full_pooling"]
 OFFLINE_OR_ONLINE = ["online"]
 SEEDS = range(experiment_global_vars.MAX_SEED_VAL)
-# Notice: if you do not specify state featuers then you are running "evaluation" simulations
+# Notice: if you do not specify state / state=None then you are running "evaluation" simulations
 # otherwise, you are running "did we learn?"" simulations
-STATE_FEATURES = ["bias"] # Note: "bias" signifies the variant where there is no advantage in ANY state
-# Namely, we zero out all of the advantage parameter vectors
-# STATE_FEATURES = ["tod", "b_bar", "a_bar", "app_engage", "bias"] 
+# order is time of day, b_bar, a_bar, app_engage
+STATES = [[1, -0.7, -0.6, 0], [1, 0, 0, 0]]
 
 ### RUNNING EVALUATIONS ###
-# QUEUE = [
-#     ('eval_online', dict(
-#                     cluster_size=["full_pooling"],
-#                     offline_or_online=OFFLINE_OR_ONLINE,
-#                     state_feature=[None],
-#                     seed=SEEDS
-#                     )
-#     ),
-#     ('eval_pooling', dict(
-#                        cluster_size=CLUSTER_SIZES,
-#                        offline_or_online=["online"],
-#                        state_feature=[None],
-#                        seed=SEEDS
-#                        )
-#     )
-#     ]
-
-### RUNNING DID WE LEARN? ###
 QUEUE = [
-    ('did_we_learn', dict(
+    ('eval_pooling', dict(
+                       cluster_size=CLUSTER_SIZES,
+                       offline_or_online=["online"],
+                       state=[None],
+                       seed=SEEDS
+                       )
+    ),
+    ('eval_online', dict(
                     cluster_size=["full_pooling"],
-                    offline_or_online=["online"],
-                    state_feature=STATE_FEATURES,
+                    offline_or_online=OFFLINE_OR_ONLINE,
+                    state=[None],
                     seed=SEEDS
                     )
     )
     ]
+
+### RUNNING DID WE LEARN? ###
+# QUEUE = [
+#     ('did_we_learn', dict(
+#                     cluster_size=["full_pooling"],
+#                     offline_or_online=["online"],
+#                     state=STATES,
+#                     seed=SEEDS
+#                     )
+#     )
+#     ]
 
 def run(exp_dir, exp_name, exp_kwargs):
     '''
@@ -73,7 +72,8 @@ def run(exp_dir, exp_name, exp_kwargs):
     1. Create directory 'exp_dir' as a function of 'exp_kwarg'.
        This is so that each set of experiment+hyperparameters get their own directory.
     '''
-    exp_path = os.path.join(exp_dir, f'{exp_name}_{exp_kwargs["state_feature"]}')
+    # exp_path = os.path.join(exp_dir, f'{exp_name}_{exp_kwargs["state"]}')
+    exp_path = os.path.join(exp_dir, "_".join([str(exp_kwargs[key]) for key in exp_kwargs.keys() if key != "seed"]))
     print('Results will be stored stored in:', exp_path)
     if not os.path.exists(exp_path):
         os.mkdir(exp_path)

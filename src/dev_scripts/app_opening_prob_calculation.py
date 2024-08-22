@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime
 
 COL_NAMES = ['user_id', 'user_decision_t', 'decision_time', 'action', 'quality', 'state_tod', 'state_b_bar', 'state_a_bar', 'state_app_engage', 'state_bias']
-MRT_DATA = pd.read_csv('oralytics_mrt_data.csv')
+MRT_DATA = pd.read_csv('../../data/oralytics_mrt_data.csv')
 MRT_USERS = MRT_DATA['user_id'].unique()
 ### HELPERS ###
 def get_user_data(df, user_id):
@@ -44,4 +44,4 @@ for user_id in MRT_USERS:
 
 # saving values to a csv
 app_open_df = pd.DataFrame({'user_id': MRT_USERS, 'app_open_prob': prop_open_app})
-app_open_df.to_csv('v4_app_open_prob.csv')
+app_open_df.to_csv('../../sim_env_data/v4_app_open_prob.csv')

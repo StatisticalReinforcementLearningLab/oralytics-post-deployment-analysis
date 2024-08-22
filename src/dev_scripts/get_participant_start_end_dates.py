@@ -1,6 +1,6 @@
 import pandas as pd
 
-MRT_DATA = pd.read_csv('oralytics_mrt_data.csv')
+MRT_DATA = pd.read_csv('../../data/oralytics_mrt_data.csv')
 MRT_USERS = MRT_DATA['user_id'].unique()
 
 ### HELPERS ###
@@ -16,4 +16,4 @@ for user_id in MRT_USERS:
     
 # saving values to a csv
 start_end_date_df = pd.DataFrame({'user_id': MRT_USERS, 'user_start_day': user_start_dates, 'user_end_day': user_end_dates})
-start_end_date_df.to_csv('v4_start_end_dates.csv')
+start_end_date_df.to_csv('../../sim_env_data/v4_start_end_dates.csv')

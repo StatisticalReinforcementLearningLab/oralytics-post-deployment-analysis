@@ -86,8 +86,6 @@ def sigmoid(x):
 def construct_model_and_sample(state, action, \
                                           bern_params, \
                                           y_params, \
-                                          sigma_u, \
-                                          model_type, \
                                           effect_func_bern=lambda state : 0, \
                                           effect_func_y=lambda state : 0):
 #   print(bern_params)
@@ -101,19 +99,11 @@ def construct_model_and_sample(state, action, \
       y_mu = state @ y_params
       if (action == 1):
           y_mu += effect_func_y(state)
-      if model_type == "sqrt_norm":
-        # normal transform component
-        sample = norm.rvs(loc=y_mu, scale=sigma_u)
-        sample = sample**2
+      # poisson component
+      l = np.exp(y_mu)
+      sample = poisson.rvs(l)
 
-        # we round to the nearest integer to produce brushing duration in seconds
-        return int(sample)
-      else:
-        # poisson component
-        l = np.exp(y_mu)
-        sample = poisson.rvs(l)
-
-        return sample
+      return sample
 
   else:
     return 0
@@ -134,8 +124,6 @@ class UserEnvironment():
         self.reward_generating_func = lambda state, action: construct_model_and_sample(state, action, \
                                           self.user_params[0], \
                                           self.user_params[1], \
-                                          self.user_params[2], \
-                                          self.model_type, \
                                           effect_func_bern=lambda state: self.user_effect_func_bern(state, self.user_effect_sizes[0]), \
                                           effect_func_y=lambda state: self.user_effect_func_y(state, self.user_effect_sizes[1]))
         # user environment history

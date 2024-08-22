@@ -3,7 +3,6 @@ import rl_algorithm
 import sim_env_v4
 import experiment_global_vars
 import compute_metrics
-import plot_predicted_advs
 
 import pickle
 import numpy as np
@@ -42,8 +41,8 @@ def run_simulations(exp_kwargs, exp_path):
     cluster_size = get_cluster_size(exp_kwargs["cluster_size"])
     offline_or_online = exp_kwargs["offline_or_online"]
     current_seed = exp_kwargs["seed"]
-    state_feature = exp_kwargs["state_feature"]
-    print(f"State Feature: {state_feature}")
+    state = exp_kwargs["state"]
+    print(f"State: {state}")
     alg_candidate = rl_algorithm.OralyticsMRTAlg(offline_or_online)
 
     data_pickle_template = exp_path + '/{}_data_df.p'
@@ -53,7 +52,7 @@ def run_simulations(exp_kwargs, exp_path):
         alg_candidates = [copy.deepcopy(alg_candidate) for _ in range(NUM_TRIAL_USERS)]
         print("SEED: ", current_seed)
         np.random.seed(current_seed)
-        environment_module = sim_env_v4.SimulationEnvironmentV4(state_feature)
+        environment_module = sim_env_v4.SimulationEnvironmentV4(state)
         data_df, update_df = rl_experiments.run_experiment(alg_candidates, environment_module)
         data_df_pickle_location = data_pickle_template.format(current_seed)
         update_df_pickle_location = update_pickle_template.format(current_seed)
@@ -65,7 +64,7 @@ def run_simulations(exp_kwargs, exp_path):
     elif cluster_size == NUM_TRIAL_USERS:
         print("SEED: ", current_seed)
         np.random.seed(current_seed)
-        environment_module = sim_env_v4.SimulationEnvironmentV4(state_feature)
+        environment_module = sim_env_v4.SimulationEnvironmentV4(state)
         data_df, update_df = rl_experiments.run_incremental_recruitment_exp(alg_candidate, environment_module)
         data_df_pickle_location = data_pickle_template.format(current_seed)
         update_df_pickle_location = update_pickle_template.format(current_seed)

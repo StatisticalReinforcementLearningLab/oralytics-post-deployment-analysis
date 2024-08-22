@@ -228,6 +228,7 @@ def run_incremental_recruitment_exp(alg_candidate, sim_env):
             rewards = get_data_df_values_for_users(data_df, current_user_idxs, trial_day_in_study, 'reward').flatten()
             alg_candidate.update(alg_states, actions, pis, rewards)
             update_idx += 1
+            print(f"Update Time: {update_idx}")
             set_update_df_values(update_df, update_idx, alg_candidate.posterior_mean, alg_candidate.posterior_var)
         # execute morning and evening decision times for the current day
         for user_idx in current_user_idxs:
