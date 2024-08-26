@@ -10,8 +10,8 @@ READ_PATH_PREFIX = read_write_info.READ_PATH_PREFIX
 WRITE_PATH_PREFIX = read_write_info.WRITE_PATH_PREFIX + "figures/"
 MAX_SEED_VAL = experiment_global_vars.MAX_SEED_VAL
 NUM_ALG_UPDATES = experiment_global_vars.NUM_ALG_UPDATES
-POSTERIOR_DF = pd.read_csv(READ_PATH_PREFIX + '/sim_env_data/posterior_weights_table.csv')
-POSTERIOR_DF = POSTERIOR_DF.drop(columns=['Unnamed: 0', 'timestamp'])
+POSTERIOR_DF = pd.read_csv(READ_PATH_PREFIX + '/sim_env_data/posterior_weights_table.csv', index_col=0)
+POSTERIOR_DF = POSTERIOR_DF.drop(columns=['timestamp'])
 
 ## HELPER FUNCTION ##
 ### GETTING POSTERIOR ###
@@ -77,23 +77,21 @@ def get_pred_advs_for_state(string_prefix, state):
 
   return pred_advs
 
-# ANNA TODO: maybe need to parallelize this as well
 ## STATES ##
-# Define the possible values for each dimension
+# # Define the possible values for each dimension
 dimension1 = [0, 1] # time of day
-dimension2 = [-1, 0, 1] # b_bar
-dimension3 = [-1, 0, 1] # a_bar
+dimension2 = [-0.7, 0.1] # b_bar
+dimension3 = [-0.6, -0.1] # a_bar
 dimension4 = [0, 1] # prior day app engagement
-dimension5 = [1] # intercept (always =1)
-
-# Create a list of lists, where each sublist represents possible values for each dimension
-dimensions = [dimension1, dimension2, dimension3, dimension4, dimension5]
-# Generate all possible combinations using itertools.product
+dimensions = [dimension1, dimension2, dimension3, dimension4]
 combinations = list(itertools.product(*dimensions))
 
-string_prefix = READ_PATH_PREFIX + "did_we_learn/did_we_learn_bias/"
 for state in combinations:
-  pred_adv_across_time = get_actual_trial_pred_advs_for_state(state)
-  resampled_trajectories = get_pred_advs_for_state(string_prefix, state)
+  string_prefix = READ_PATH_PREFIX + f"did_we_learn/full_pooling_online_{list(state)}/"
+  print(f"getting results from {string_prefix}")
+  alg_state = list(state)
+  alg_state.append(1) # adding intercept back in
+  pred_adv_across_time = get_actual_trial_pred_advs_for_state(alg_state)
+  resampled_trajectories = get_pred_advs_for_state(string_prefix, alg_state)
   # note: x-axis has to be shifted by 1 because violin plots start indexing by 1 even though we coded it to start by 0
-  plot_stat_across_time(range(1, NUM_ALG_UPDATES + 1), pred_adv_across_time, resampled_trajectories, f"f(s) = {state}", True, WRITE_PATH_PREFIX + "did_we_learn/" + str(state))
+  plot_stat_across_time(range(1, NUM_ALG_UPDATES + 1), pred_adv_across_time, resampled_trajectories, f"f(s) = {alg_state}", True, WRITE_PATH_PREFIX + "did_we_learn/" + str(alg_state))

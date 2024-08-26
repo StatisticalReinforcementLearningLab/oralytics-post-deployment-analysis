@@ -256,8 +256,6 @@ def create_user_envs_under_no_advantage(users_list, state=None, no_adv_all_state
             sampled_P_poisson = sample_P_matrix(u_poisson, env_state)
             w_bern = sampled_P_bern @ u_bern
             w_poisson = sampled_P_poisson @ u_poisson
-            print(f"verify close to 0: {w_bern @ env_state}")
-            print(f"verify close to 0: {w_poisson @ env_state}")
             adv_params = w_bern, w_poisson
       user_effect_func_bern, user_effect_func_y = get_user_effect_funcs()
       new_user = UserEnvironmentV4(user_id, model_type, adv_params, \

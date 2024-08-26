@@ -1,5 +1,7 @@
 # Raw data should not be pushed for privacy reasons
 data/
+# read / write data path also should not be pushed for privacy reasons
+src/experiments/read_write_info.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import itertools
 import read_write_info
 import run_experiments
 import experiment_global_vars
@@ -34,36 +35,42 @@ SEEDS = range(experiment_global_vars.MAX_SEED_VAL)
 # Notice: if you do not specify state / state=None then you are running "evaluation" simulations
 # otherwise, you are running "did we learn?"" simulations
 # order is time of day, b_bar, a_bar, app_engage
-STATES = [[1, -0.7, -0.6, 0], [1, 0, 0, 0]]
+# # Define the possible values for each dimension
+dimension1 = [0, 1] # time of day
+dimension2 = [-0.7, 0.1] # b_bar
+dimension3 = [-0.6, -0.1] # a_bar
+dimension4 = [0, 1] # prior day app engagement
+dimensions = [dimension1, dimension2, dimension3, dimension4]
+STATES = list(itertools.product(*dimensions))
 
 ### RUNNING EVALUATIONS ###
-QUEUE = [
-    ('eval_pooling', dict(
-                       cluster_size=CLUSTER_SIZES,
-                       offline_or_online=["online"],
-                       state=[None],
-                       seed=SEEDS
-                       )
-    ),
-    ('eval_online', dict(
-                    cluster_size=["full_pooling"],
-                    offline_or_online=OFFLINE_OR_ONLINE,
-                    state=[None],
-                    seed=SEEDS
-                    )
-    )
-    ]
-
-### RUNNING DID WE LEARN? ###
 # QUEUE = [
-#     ('did_we_learn', dict(
+#     ('eval_pooling', dict(
+#                        cluster_size=CLUSTER_SIZES,
+#                        offline_or_online=["online"],
+#                        state=[None],
+#                        seed=SEEDS
+#                        )
+#     ),
+#     ('eval_online', dict(
 #                     cluster_size=["full_pooling"],
-#                     offline_or_online=["online"],
-#                     state=STATES,
+#                     offline_or_online=OFFLINE_OR_ONLINE,
+#                     state=[None],
 #                     seed=SEEDS
 #                     )
 #     )
 #     ]
+
+### RUNNING DID WE LEARN? ###
+QUEUE = [
+    ('did_we_learn', dict(
+                    cluster_size=["full_pooling"],
+                    offline_or_online=["online"],
+                    state=STATES,
+                    seed=SEEDS
+                    )
+    )
+    ]
 
 def run(exp_dir, exp_name, exp_kwargs):
     '''
