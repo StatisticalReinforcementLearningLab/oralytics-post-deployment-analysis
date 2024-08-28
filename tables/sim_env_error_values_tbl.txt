@@ -1,0 +1,9 @@
+\begin{tabular}{ll}
+\toprule
+Metrics & Value \\
+\midrule
+Mean Squared Error & 6165.169 (4.485) \\
+Root Mean Squared Error & 78.516 (0.029) \\
+Mean Absolute Error & 48.027 (0.023) \\
+\bottomrule
+\end{tabular}

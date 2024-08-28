@@ -5,6 +5,7 @@ from scipy.stats import bernoulli
 from scipy.stats import poisson
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+import os
 
 from fitting_user_models import process_mrt_data
 from create_eval_metrics import plot_ci_all_features, make_metrics_comparison_table, make_error_values_table
@@ -14,6 +15,8 @@ MRT_DATA = pd.read_csv('oralytics_mrt_data.csv')
 MRT_DATA = process_mrt_data(MRT_DATA)
 NON_STAT_PARAMS_DF = pd.read_csv('../../sim_env_data/v4_non_stat_zip_model_params.csv')
 STATE_COLS = [column for column in MRT_DATA.columns if 'state_' in column]
+SIMULATED_QUALITIES_FILE = 'simulated_qualities.csv' 
+SIM_QUAL_COLS = [f'sim_quality_{i+1}' for i in range(NUM_SIMULATIONS)] # Global variable
 
 # note: since v4 only chose zip models, these are the following parameters
 def get_base_params_for_user(user):
@@ -84,42 +87,47 @@ def construct_model_and_sample(state, action, \
   else:
     return 0
 
-for idx, row in MRT_DATA.iterrows():
-    user = row['user_id']
-    state = np.array(row[STATE_COLS])
-    action = row['action']
+if os.path.exists(SIMULATED_QUALITIES_FILE):
+    print("Using existing simulated qualities file...")
+    qualities = pd.read_csv(SIMULATED_QUALITIES_FILE)
+else:
+  print("Running simulations...")
+  for idx, row in MRT_DATA.iterrows():
+      user = row['user_id']
+      state = np.array(row[STATE_COLS])
+      action = row['action']
 
-    # Retrieve the parameters for the user
-    bern_base_params, y_base_params, _ = get_base_params_for_user(user)
-    bern_adv_params, y_adv_params = get_adv_params_for_user(user)
-    effect_func_bern, effect_func_y = get_user_effect_funcs()
+      # Retrieve the parameters for the user
+      bern_base_params, y_base_params, _ = get_base_params_for_user(user)
+      bern_adv_params, y_adv_params = get_adv_params_for_user(user)
+      effect_func_bern, effect_func_y = get_user_effect_funcs()
 
-    # Run simulations and store the results in new columns
-    for i in range(NUM_SIMULATIONS):
-        quality = construct_model_and_sample(state, action,
-                                             bern_base_params,
-                                             y_base_params,
-                                             bern_adv_params,
-                                             y_adv_params,
-                                             None,
-                                             'zip',
-                                             effect_func_bern,
-                                             effect_func_y)
-        sim_quality_col = f'sim_quality_{i+1}'
-        MRT_DATA.at[idx, sim_quality_col] = quality
+      # Run simulations and store the results in new columns
+      for i in range(NUM_SIMULATIONS):
+          quality = construct_model_and_sample(state, action,
+                                              bern_base_params,
+                                              y_base_params,
+                                              bern_adv_params,
+                                              y_adv_params,
+                                              None,
+                                              'zip',
+                                              effect_func_bern,
+                                              effect_func_y)
+          sim_quality_col = f'sim_quality_{i+1}'
+          MRT_DATA.at[idx, sim_quality_col] = quality
 
-sim_quality = MRT_DATA.filter(regex='^sim_quality|^user_id')
-MRT_DATA['mean_sim_quality'] = sim_quality.drop(columns='user_id').mean(axis=1)
+  sim_quality = MRT_DATA.filter(regex='^sim_quality|^user_id')
+  MRT_DATA['mean_sim_quality'] = sim_quality.drop(columns='user_id').mean(axis=1)
 
-sim_qual_cols = [column for column in MRT_DATA.columns if column.startswith('sim_quality_') ]
-qualities = MRT_DATA[['user_id','quality']+sim_qual_cols]
+  qualities = MRT_DATA[['user_id','quality']+SIM_QUAL_COLS]
+  qualities.to_csv(SIMULATED_QUALITIES_FILE, index=False)
 
-plot_ci_all_features(qualities,sim_qual_cols)
+plot_ci_all_features(qualities,SIM_QUAL_COLS)
 
 result_table_mrt_1 = make_metrics_comparison_table(qualities).to_latex(index=False)
 with open('../../tables/sim_env_metrics_comparison_tbl.txt', 'w') as f:
     f.write(result_table_mrt_1)
 
-result_table_mrt_2 = make_error_values_table(qualities,sim_qual_cols).to_latex(index=False)
+result_table_mrt_2 = make_error_values_table(qualities,SIM_QUAL_COLS).to_latex(index=False)
 with open('../../tables/sim_env_error_values_tbl.txt', 'w') as f:
     f.write(result_table_mrt_2)

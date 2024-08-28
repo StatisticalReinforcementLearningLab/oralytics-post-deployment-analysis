@@ -1,0 +1,13 @@
+\begin{tabular}{llr}
+\toprule
+Metric & Simulation Environment & Oralytics Trial Data \\
+\midrule
+Proportion of Decision Times With OSCB = 0 & 0.473 (0.0002) & 0.477 \\
+Average Non-Zero OSCB in Trial & 131.196 (0.018) & 131.487 \\
+Average of Average Non-Zero Participant OSCB & 126.894 (0.043) & 127.104 \\
+Variance of Non-Zero OSCB in Trial & 1790.723 (3.208) & 1777.210 \\
+Variance of Average Non-Zero Participant OSCB & 834.028 (7.434) & 796.132 \\
+Variance of Average Participant OSCB & 69.166 (0.024) & 68.827 \\
+Average of Variances of Participant OSCB & 3865.696 (2.723) & 3883.210 \\
+\bottomrule
+\end{tabular}

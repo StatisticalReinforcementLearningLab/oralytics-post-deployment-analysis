@@ -56,10 +56,14 @@ def get_avg_variances_within_user_brushing_duration_df(qualities):
   return metrics, "Average of Variances of Participant OSCB"
 
 def make_metrics_comparison_table_row(metrics_df, metric_name):
-  mean_sim_val = metrics_df.iloc[1:].mean()
-  se_sim_val = metrics_df.iloc[1:].std()/np.sqrt(NUM_SIMULATIONS)
-  true_val = metrics_df.iloc[0]
-  sim_val_text = mean_sim_val.round(3).astype(str) + ' (' + se_sim_val.round(3).astype(str) + ')'
+  mean_sim_val = (metrics_df.iloc[1:].mean()).round(3)
+  se_sim_val = (metrics_df.iloc[1:].std()/np.sqrt(NUM_SIMULATIONS))
+  if metric_name == "Proportion of Decision Times With OSCB = 0":
+    se_sim_val = se_sim_val.round(4)
+  else: 
+    se_sim_val = se_sim_val.round(3)
+  true_val = (metrics_df.iloc[0]).round(3)
+  sim_val_text = mean_sim_val.astype(str) + ' (' + se_sim_val.astype(str) + ')'
 
   table_row = pd.DataFrame({'Metric': [metric_name], 'Simulation Environment': [sim_val_text], 'Oralytics Trial Data': [true_val]})
   return table_row
@@ -119,24 +123,26 @@ def plot_ci_pooled_by_user(data, sim_qual_cols, ax, title=""):
         ax.errorbar(i, sim_means[i], yerr=[[sim_means[i] - lower_bounds[i]], [upper_bounds[i] - sim_means[i]]],
                     fmt='none', ecolor='black', capsize=5)
 
-    ax.set_xlabel('User ID', fontsize=16)
-    ax.set_ylabel('Mean', fontsize=16)
-    ax.set_title(title, fontsize=18)
+    ax.set_xlabel('Participant ID', fontsize=24)
+    ax.set_ylabel('Mean', fontsize=24)
+    ax.set_title(title, fontsize=24)
     ax.set_xticks(range(len(user_ids)))
-    ax.set_xticklabels(user_ids, rotation=90)  # Rotate labels if needed for better readability
-
-    ax.legend()
+    ax.set_xticklabels(user_ids, rotation=45)
+    ax.tick_params(axis='x', labelsize=17)
+    ax.tick_params(axis='y', labelsize=17)
+    ax.margins(x=0.01)
+    ax.legend(fontsize=20)
 
 def plot_ci_all_features(qualities, sim_qual_cols):
   avg_nz_qual = qualities.groupby('user_id').apply(lambda x: x.iloc[:, 1:][x.iloc[:, 1:] != 0].mean()).reset_index()
   var_nz_qual = qualities.groupby('user_id').apply(lambda x: x.iloc[:, 1:][x.iloc[:, 1:] != 0].var()).reset_index()
   prop_missed = qualities.groupby('user_id').apply(lambda x: (x == 0).mean()).drop(columns='user_id').reset_index()
 
-  fig, axs = plt.subplots(3, 1, figsize=(15, 15))
+  fig, axs = plt.subplots(3, 1, figsize=(28, 23))
 
   plot_ci_pooled_by_user(prop_missed, sim_qual_cols, axs[1], "Proportion of Decision Times with OSCB = 0")
   plot_ci_pooled_by_user(avg_nz_qual, sim_qual_cols, axs[0], "Average Non-Zero Participant OSCB")
-  plot_ci_pooled_by_user(var_nz_qual, sim_qual_cols, axs[2], "Variance of Non-zero Participant OSCB")
+  plot_ci_pooled_by_user(var_nz_qual, sim_qual_cols, axs[2], "Variance of Non-Zero Participant OSCB")
 
   plt.tight_layout()
   plt.savefig('../../figs/simulation_metrics_plot.png')
