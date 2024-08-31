@@ -42,11 +42,11 @@ def plot_stat_across_time(x, trial_trajectory, resampled_trajectories, title, sa
     plt.violinplot(resampled_trajectories, showmeans=False, showmedians=True)
     plt.plot(x, trial_trajectory, marker='o', linestyle='-', color='b')
     plt.title(title, fontsize=25)
-    plt.xlabel("Update Times", fontsize=20)
+    plt.xlabel(r'Update Time $\tau$', fontsize=20)
     plt.xticks(fontsize=15)
     # need to re-index because plt.violinplot defaults indexing starting at 1
     plt.xticks(ticks=range(1, len(x) + 1, 5), labels=range(0, len(x), 5))
-    plt.ylabel('Predicted Advantage (Standardized)', fontsize=20)
+    plt.ylabel('Standardized Predicted Advantage', fontsize=20)
     plt.yticks(fontsize=15)
     if save_as_pdf:
         plt.savefig(pdf_filename + ".pdf", format='pdf')
@@ -93,5 +93,7 @@ for state in combinations:
   alg_state.append(1) # adding intercept back in
   pred_adv_across_time = get_actual_trial_pred_advs_for_state(alg_state)
   resampled_trajectories = get_pred_advs_for_state(string_prefix, alg_state)
+  # title = "" # specify no title
+  title = f"f(s) = {alg_state}" # specify state as title
   # note: x-axis has to be shifted by 1 because violin plots start indexing by 1 even though we coded it to start by 0
-  plot_stat_across_time(range(1, NUM_ALG_UPDATES + 1), pred_adv_across_time, resampled_trajectories, f"f(s) = {alg_state}", True, WRITE_PATH_PREFIX + "did_we_learn/" + str(alg_state))
+  plot_stat_across_time(range(1, NUM_ALG_UPDATES + 1), pred_adv_across_time, resampled_trajectories, title, True, WRITE_PATH_PREFIX + "did_we_learn/" + str(alg_state))

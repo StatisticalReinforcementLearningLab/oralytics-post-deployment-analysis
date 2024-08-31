@@ -145,7 +145,7 @@ def plot_ci_all_features(qualities, sim_qual_cols):
   plot_ci_pooled_by_user(var_nz_qual, sim_qual_cols, axs[2], "Variance of Non-Zero Participant OSCB")
 
   plt.tight_layout()
-  plt.savefig('../../figs/simulation_metrics_plot.png')
+  plt.savefig('../../figs/simulation_metrics_plot.pdf', format='pdf')
 
 def make_error_values_table(qualities,sim_qual_cols):
     differences = qualities[sim_qual_cols].sub(qualities['quality'], axis=0)
