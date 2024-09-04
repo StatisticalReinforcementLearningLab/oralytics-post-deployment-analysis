@@ -1,5 +1,19 @@
 # oralytics-post-deployment-analysis
-Code for a re-sampling analysis to evaluate algorithm decisions made for the RL algorithm deployed in the MRT (phase 1) of the Oralytics trial.
+This repository contains code from the [Oralytics Deployment Paper](https://arxiv.org/abs/2409.02069) for performing re-sampling analyses to re-evaluate algorithm decisions made for the RL algorithm deployed in the MRT (phase 1) of the Oralytics trial.
+
+## Citing Our Code
+If you use our code in any way, please cite us:
+```
+@misc{trella2024deployedonlinereinforcementlearning,
+      title={A Deployed Online Reinforcement Learning Algorithm In An Oral Health Clinical Trial}, 
+      author={Anna L. Trella and Kelly W. Zhang and Hinal Jajal and Inbal Nahum-Shani and Vivek Shetty and Finale Doshi-Velez and Susan A. Murphy},
+      year={2024},
+      eprint={2409.02069},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2409.02069}, 
+}
+```
 
 ## Fitting Simulation Environment
 * Running `python3 src/dev_scripts/fitting_user_models.py` will fit each Oralytics participant to a non-stationary base model class (zero-inflated poisson model) and save parameters to `v4_non_stat_zip_model_params.csv`.
